@@ -1,2 +1,7 @@
-let a = 1;
-export default a;
+import $ from 'jquery';
+
+export function start() {
+    console.log('biz1 start');
+
+    $('#main').html('biz1 start');
+}
