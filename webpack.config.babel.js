@@ -17,12 +17,14 @@ export default {
 
     output: {
         path: distPath,
-        filename: '[name]-[hash:6].bundle.js'
+        filename: '[name]-[hash:6].bundle.js',
+        publicPath: '/'
     },
 
     module: {
         loaders: [
             {test: /\.js$/, exclude: /node_modules/, loader: 'babel'},
+            {test: /\.(htm|html)$/i, loader: 'html-withimg-loader'},
             {test: /\.(png|jpg)$/, loader: 'url-loader?limit=8192'},
             {test: /\.less$/, loader: 'style!css!less'},
             {test: /\.css$/, loader: 'style!css'}
@@ -47,6 +49,8 @@ export default {
             '$': 'jquery',
             'jQuery': 'jquery',
             'window.jQuery': 'jquery'
-        })
+        }),
+
+        new webpack.HotModuleReplacementPlugin()
     ]
 }
