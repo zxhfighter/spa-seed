@@ -40,7 +40,7 @@ export default {
 
         new webpack.optimize.CommonsChunkPlugin({
             name: 'vendor',
-            minChunks: function (module) {
+            minChunks(module) {
                 return module.resource && module.resource.indexOf(appPath) === -1;
             }
         }),
@@ -53,4 +53,4 @@ export default {
 
         new webpack.HotModuleReplacementPlugin()
     ]
-}
+};

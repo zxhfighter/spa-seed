@@ -10,7 +10,6 @@ import webpachHotMiddelware from 'webpack-hot-middleware';
 let serveInstance = serve.create();
 
 let appPath = __dirname + '/app';
-let distPath = __dirname + '/dist';
 
 gulp.task('serve', () => {
     const config = require('./webpack.config.babel').default;
@@ -20,10 +19,7 @@ gulp.task('serve', () => {
         entry
     ];
 
-    console.log(config);
-
     let compiler = webpack(config);
-
     serveInstance.init({
         port: process.env.PORT || 9981,
         open: true,
@@ -41,11 +37,6 @@ gulp.task('serve', () => {
     });
 
     serveInstance.watch(appPath + '/index.html').on('change', serveInstance.reload);
-});
-
-
-gulp.task('build', () => {
-
 });
 
 gulp.task('watch', ['serve']);

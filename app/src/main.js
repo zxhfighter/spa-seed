@@ -8,5 +8,3 @@ $('#menu a').click(e => {
         file.start && file.start();
     });
 });
-
-
