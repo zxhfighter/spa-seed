@@ -198,7 +198,6 @@ export default {
             {test: /\.less$/, loader: 'style!css!less'},
             {test: /\.css$/, loader: 'style!css'},
             {test: /\.(png|jpg)$/, loader: 'url-loader?limit=8192'}
-        ]
     },
 
     plugins: [
