@@ -17,7 +17,8 @@ export default {
 
     output: {
         path: distPath,
-        filename: '[name]-[hash:6].bundle.js'
+        filename: '[name]-[hash:6].bundle.js',
+        publicPath: '/'
     },
 
     module: {
@@ -47,6 +48,8 @@ export default {
             '$': 'jquery',
             'jQuery': 'jquery',
             'window.jQuery': 'jquery'
-        })
+        }),
+
+        new webpack.HotModuleReplacementPlugin()
     ]
 }
