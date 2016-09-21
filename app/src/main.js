@@ -7,6 +7,4 @@ $('#menu a').click(e => {
         let file = require('./' + path + '.js');
         file.start && file.start();
     });
-});
-
-
+}).click();
