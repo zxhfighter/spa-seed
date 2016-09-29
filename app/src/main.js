@@ -1,3 +1,4 @@
+import './static/css/index.less';
 import $ from 'jquery';
 
 $('#menu a').click(e => {

@@ -4,7 +4,7 @@
  */
 
 import './chord.less';
-
+import Util from '../common/util';
 import Chart from './chart';
 import * as d3 from 'd3';
 
@@ -54,13 +54,7 @@ class Chord extends Chart {
      */
     createSVG() {
         let {width, height, el = 'body'} = this.options;
-
-        let svg = d3.select(el).append('svg')
-            .attr('class', 'd3-svg')
-            .attr('width', width)
-            .attr('height', height);
-
-        return svg;
+        return Util.createSVG(el, width, height).attr('class', 'd3-svg');
     }
 
     /**
@@ -195,14 +189,8 @@ class Chord extends Chart {
                 me.selectedLabelArray[i] = +(!this.disabled);
 
                 // 如果未选中，颜色置灰
-                if (this.disabled) {
-                    rect.attr('fill', '#ccc');
-                    text.attr('stroke', '#ccc');
-                }
-                else {
-                    rect.attr('fill', colorScale(i));
-                    text.attr('stroke', 'inherit');
-                }
+                rect.attr('fill', this.disabled ? '#ccc' : colorScale(i));
+                text.attr('fill', this.disabled ? '#ccc' : 'inherit');
 
                 // 根据选中的标签，重新计算矩阵等数据
                 me.computeMatrix(me.selectedLabelArray);
@@ -235,57 +223,91 @@ class Chord extends Chart {
     positionLegend(legendGroup) {
         let bounds = legendGroup.node().getBoundingClientRect();
         let legendOptions = this.options.legend;
-        let {width} = this.options;
+        let {width, height} = this.options;
         let defaultPadding = 10;
 
-        // 定位，后续需要提取函数
-        if (!legendOptions.left || legendOptions.left === 'left' || legendOptions.left === 'auto') {
-            legendGroup.attr('transform', `translate(${defaultPadding}, ${defaultPadding})`);
+        let left = defaultPadding;
+        let top = defaultPadding;
+
+        // 计算 left 坐标，优先计算 right 属性
+        if (legendOptions.right && legendOptions.right !== 'auto') {
+            let rightMargin = legendOptions.right.replace('px', '');
+            rightMargin = /\d+/.test(rightMargin) ? +rightMargin : defaultPadding;
+            left = width - bounds.width - rightMargin;
+        }
+        else if (!legendOptions.left || legendOptions.left === 'left' || legendOptions.left === 'auto') {
+            left = defaultPadding;
         }
         else if (legendOptions.left === 'center' || legendOptions.left === 'middle') {
-            legendGroup.attr('transform', `translate(${(width - bounds.width) / 2}, 10)`);
+            left = (width - bounds.width) / 2;
         }
         else if (legendOptions.left === 'right') {
-            legendGroup.attr('transform', `translate(${width - bounds.width - defaultPadding}, ${defaultPadding})`);
+            left = width - bounds.width - defaultPadding;
         }
         else {
-
+            left = legendOptions.left.replace('px', '');
+            left = /\d+/.test(left) ? +left : defaultPadding;
         }
+
+        // 计算 top 坐标，优先计算 bottom 属性
+        if (legendOptions.bottom && legendOptions.bottom !== 'auto') {
+            let bottomMargin = legendOptions.bottom.replace('px', '');
+            bottomMargin = /\d+/.test(bottomMargin) ? +bottomMargin : defaultPadding;
+            top = height - bounds.height - bottomMargin;
+        }
+        else if (!legendOptions.top || legendOptions.top === 'top' || legendOptions.top === 'auto') {
+            top = defaultPadding;
+        }
+        else if (legendOptions.top === 'center' || legendOptions.top === 'middle') {
+            top = (height - bounds.height) / 2;
+        }
+        else if (legendOptions.top === 'bottom') {
+            top = height - bounds.height - defaultPadding;
+        }
+        else {
+            top = legendOptions.top.replace('px', '');
+            top = /\d+/.test(top) ? +top : defaultPadding;
+        }
+
+        legendGroup.attr('transform', `translate(${left}, ${top})`);
     }
 
+    /**
+     * 根据选择的标签重新计算数据
+     *
+     * @param  {Array} labelArray 标签选择数组
+     * @return {Array}            计算完毕后的新关系矩阵数据
+     */
     computeMatrix(labelArray) {
+
+        //TODO: 目前只支持一个图形的绘制，后续支持多个图形的绘制
         let serieData = this.options.series[0].data;
-
-        let rows = [];
-        serieData.forEach((item, i) => {
-            if (labelArray[i]) {
-                rows.push(item);
-            }
-        });
-
+        let rows = serieData.filter((item, i) => labelArray[i]);
         let result = [];
 
         rows.forEach((item, i) => {
-            let newRow = [];
-            item.forEach((innerItem, j) => {
-                if (labelArray[j]) {
-                    newRow.push(innerItem);
-                }
-            });
+            let newRow = item.filter((innerItem, j) => labelArray[j]);
             result.push(newRow);
         });
 
         // 重新计算图例标签比例尺
         this.legendScale = this.createLegendScale(labelArray);
 
-        // 颜色比例尺
+        // 重新颜色比例尺
         this.colorScale = this.createColorScale(labelArray);
 
+        // 重新渲染余弦图(legend 标注不变)
         this.renderChord(result);
 
+        // 返回计算结果
         return result;
     }
 
+    /**
+     * 根据关系矩阵渲染余弦图
+     *
+     * @param  {Array} matrix 关系矩阵数据
+     */
     renderChord(matrix) {
         let rootGroup = this.rootGroup;
         rootGroup.html('');
@@ -297,6 +319,7 @@ class Chord extends Chart {
         let ringWidth = this.options.series[0].ringWidth;
         let padding = 30;
 
+        // 计算外圆和内圆半径
         let outerRadius = Math.min(width, height) / 2 - padding;
         let innerRadius = outerRadius - ringWidth;
 
@@ -375,181 +398,7 @@ class Chord extends Chart {
 
     appendTo(dom) {
         dom.innerHTML = '';
-
-        // 关系矩阵
-        let matrix = [
-            [11975, 5871, 8916, 2868],
-            [1951, 10048, 2060, 6171],
-            [8010, 16145, 8090, 8045],
-            [1013, 990, 940, 6907]
-        ];
-
-        // 定义画布宽高
-        let width = 500;
-        let height = 500;
-
-        // 定义画布填充
-        let margin = {
-            top: 20,
-            left: 20,
-            right: 20,
-            bottom: 20
-        };
-
-        // 实际绘图区域
-        let innerWidth = width - margin.left - margin.right;
-        let innerHeight = height - margin.top - margin.bottom;
-
-        // 环宽
-        let ringWidth = 30;
-
-        // 外圈半径
-        let outerRadius = Math.min(innerWidth, innerHeight) / 2 - 30;
-
-        // 内圈半径
-        let innerRadius = outerRadius - ringWidth;
-
-        // 创建 svg
-        let svg = d3.select(dom).append('svg')
-            .attr('width', width)
-            .attr('height', height);
-
-        // 创建和弦图布局
-        let chord = d3.chord()
-
-            // 外层节点之间的角度间隔，这里是 6℃
-            .padAngle(3 * Math.PI / 180)
-
-            // 某个节点流出线条大小排序，这里降序排列
-            .sortSubgroups(d3.descending);
-
-        // 创建曲线
-        let arc = d3.arc()
-            .innerRadius(innerRadius)
-            .outerRadius(outerRadius);
-
-        // 创建丝带
-        let ribbon = d3.ribbon().radius(innerRadius);
-
-        // 创建颜色比例尺
-        let color = d3.scaleOrdinal()
-            .domain(d3.range(4))
-            .range(['#000000', '#FFDD89', '#957244', '#F26223']);
-
-        let legendData = ['宝马', '特斯拉', '奔驰', '凯迪拉克'];
-
-        // 创建标签数组
-        let legend = d3.scaleOrdinal()
-            .domain(d3.range(4))
-            .range(legendData);
-
-        // 移动至中心
-        let g = svg.append('g')
-            .attr('transform', 'translate(' + width / 2 + ',' + height / 2 + ')')
-            .datum(chord(matrix));
-
-        let me = this;
-        // 创建外层数据节点
-        let group = g.append('g')
-            .attr('class', 'groups')
-            .selectAll('g')
-            .data(chords => {
-                return chords.groups;
-            })
-            .enter()
-            .append('g')
-            .on('mouseover', function (d, i) {
-                me.mouseover.call(me, d, i, this);
-            })
-            .on('mousemove', function (d, i) {
-                me.mousemove.call(me, d, i, this);
-            })
-            .on('mouseout', function (d, i) {
-                me.mouseout.call(me, d, i, this);
-            });
-
-        // 实际创建
-        group.append('path')
-            .style('fill', d => color(d.index))
-            .style('stroke', d => d3.rgb(color(d.index)).darker())
-            .attr('d', arc);
-
-        // 创建内部的丝带
-        g.append('g')
-            .attr('class', 'ribbons')
-            .selectAll('path')
-            .data(chords => chords)
-            .enter()
-            .append('path')
-            .attr('d', ribbon)
-            .style('fill', d => color(d.target.index))
-            .style('stroke', d => d3.rgb(color(d.target.index)).darker())
-            .on('mouseover', function (d, i) {
-                me.ribbonMouseover.call(me, d, i, this);
-            })
-            .on('mousemove', function (d, i) {
-                me.ribbonMousemove.call(me, d, i, this);
-            })
-            .on('mouseout', function (d, i) {
-                me.ribbonMouseout.call(me, d, i, this);
-            });
-
-        let tooltip = d3.select('body').append('div')
-            .attr('class', 'd3-tooltip');
-
-        let legendGroups = g.append('g')
-            .attr('transform', 'translate(' + (-innerWidth/2) + ',' + (-innerHeight/2) +')')
-            .selectAll('g')
-            .data(legendData)
-            .enter()
-            .append('g')
-            .attr('class', 'legend-item')
-            .attr('transform', (d, i) => {
-                return `translate(${i * 80}, 0)`;
-            })
-            .on('click', function (d, i) {
-                let rect = this.querySelector('rect');
-                let text = this.querySelector('text');
-
-                this.disabled = !this.disabled;
-
-                if (this.disabled ) {
-                    d3.select(rect).attr('fill', '#ccc');
-                    d3.select(text).attr('stroke', '#ccc');
-                }
-                else {
-                    d3.select(rect).attr('fill', color(i));
-                    d3.select(text).attr('stroke', 'inherit');
-                }
-            });
-
-        legendGroups
-            .append('rect')
-            .attr('width', 10)
-            .attr('height', 10)
-            .attr('fill', (d, i) => color(i));
-
-        legendGroups
-            .append('text')
-            .attr('dx', 25)
-            .attr('dy', 15)
-            .text((d, i) => {
-                return d;
-            });
-            // .on('mouseover', function (d, i) {
-            //     d3.select(this).attr('stroke', d3.rgb(color(i)).brighter());
-            //     d3.select(this).attr('strokeWidth', '1');
-            // })
-            // .on('mouseout', function (d, i) {
-            //     // d3.select(this).attr('stroke', '#333');
-            //     // d3.select(this).attr('strokeWidth', '1');
-            // });
-
-        this.tooltip = tooltip;
-        this.legend = legend;
     }
-
-
 
     ribbonMouseover(e, i, dom) {
 
@@ -577,25 +426,26 @@ class Chord extends Chart {
 
     mouseover(e, i, dom) {
 
-        let [x, y] = d3.mouse(dom);
-
         let tooltip = this.tooltip;
         let legend = this.legend;
 
-        tooltip.html(legend(i) + ' : ' + e.value);
-        return tooltip.transition().duration(50).style('opacity', 0.9);
+        let groupTooltip = this.options.series[0].groupTooltip;
+        if (groupTooltip.show) {
+
+            let tip = groupTooltip.formatter ? groupTooltip.formatter(e) : e.value;
+            tooltip.html(legend(i) + ' : ' + tip);
+            return tooltip.transition().duration(50).style('opacity', 0.9);
+        }
     }
 
     mousemove(e, i, dom) {
-        let tooltip = this.tooltip;
-        return tooltip
+        return this.tooltip
             .style('top', (d3.event.pageY - 10) + 'px')
             .style('left', (d3.event.pageX + 10) + 'px');
     }
 
     mouseout(e, i, dom) {
-        let tooltip = this.tooltip;
-        return tooltip.style('opacity', 0);
+        return this.tooltip.style('opacity', 0);
     }
 
     dispose() {
@@ -607,6 +457,7 @@ class Chord extends Chart {
 }
 
 export function start() {
+    $('#main').html('');
 
     let chord = new Chord({
 
@@ -637,7 +488,7 @@ export function start() {
             top: 'auto',
             right: 'auto',
             bottom: 'auto',
-            orient: 'vertical',
+            orient: 'horizontal',
             itemGap: 10,
             itemWidth: 60,
             iconWidth: 14,
@@ -659,8 +510,6 @@ export function start() {
             textStyle: {},
             tooltip: {}
         },
-
-
 
         series: [
             {
@@ -684,12 +533,18 @@ export function start() {
 
                 // 组 tooltip 设置和格式化函数
                 groupTooltip: {
-                    show: true
+                    show: true,
+                    formatter(item) {
+                        return item.value;
+                    }
                 },
 
                 // 丝带 tooltip 设置和格式化函数
                 ribbonTooltip: {
-                    show: true
+                    show: true,
+                    formatter(item) {
+                        return item.value;
+                    }
                 }
             }
         ],
