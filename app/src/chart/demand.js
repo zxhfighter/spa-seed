@@ -10,6 +10,7 @@ import Util from '../common/util';
 import Chart from './chart';
 import demandData from './demandData';
 import dragImagePng from '../static/img/zoomhander.png';
+import ee from '../common/event';
 
 /**
  * 默认参数
@@ -129,9 +130,7 @@ class Demand extends Chart {
         // 创建中心词
         this.renderCenterWord();
 
-        // 创建进度条
-        // this.createDateBar();
-
+        // 创建时间轴
         this.timeline = this.createTimeline();
 
         // 分词
@@ -146,13 +145,18 @@ class Demand extends Chart {
             // 创建节点列表
             this.createPoints();
 
-            this.firstLoad();
+            // this.firstLoad();
 
             // this.start();
 
             // 运行节点
             this.load = true;
         }
+    }
+
+    on(eventName, fn) {
+        let blank = function () {};
+        ee.on(eventName, fn || blank);
     }
 
     createTimeline() {
@@ -178,241 +182,8 @@ class Demand extends Chart {
         });
     }
 
-    createDateBar() {
-        let me = this;
-        let {startDate, endDate, el} = this.options;
-        let weeks = Util.getRangeWeeks(startDate, endDate);
-        let weekLabels = _.map(weeks, item => {
-            return Util.formatDate(item.start) + '-' + Util.formatDate(item.end);
-        }).reverse();
+    start() {
 
-        let monthLabels = [];
-        let oldLabel = '';
-        _.each(weeks, item => {
-            let month = item.end.getMonth() + 1;
-            let label = month + '月';
-
-            // 如果是1月，需要加上年份区分
-            if (month === 1) {
-                label = item.end.getFullYear() + '年' + month + '月';
-            }
-
-            if (label !== oldLabel) {
-                monthLabels.unshift(label);
-            }
-
-            oldLabel = label;
-        });
-
-        // console.log(weekLabels);
-        // console.log(monthLabels);
-        let g = this.svg.append('g').style('opacity', 0);
-        let weekPositions = [];
-        let rects = g.selectAll('rect.date-bar-item')
-            .data(weekLabels)
-            .enter()
-            .append('rect')
-            .attr('class', 'date-bar-item')
-            .attr('width', 14)
-            .attr('height', 10)
-            .attr('x', (d, i) => {
-                let x = 15.5 * i;
-                !weekPositions[d] && (weekPositions[d] = {});
-                weekPositions[d].x = x;
-                weekPositions[d].i = i;
-                weekPositions[d].name = d;
-                return x;
-            })
-            .attr('y', (d, i) => {
-                let y = 0;
-                !weekPositions[d] && (weekPositions[d] = {});
-                weekPositions[d].y = y;
-                return y;
-            })
-            .attr('fill', '#c3dafb')
-            .attr('storke', 'none');
-
-        rects.on('click', function (e, i) {
-            me.jump(i);
-        });
-
-        let weekValues = _.values(weekPositions);
-        this.weekValues = weekValues;
-
-        let {width, height, left: gLeft, right: gRight, top: gTop} = g.node().getBoundingClientRect();
-        let {width: svgWidth, height: svgHeight} = this.options;
-        let left = (svgWidth - width) / 2;
-        let top = svgHeight - 55;
-        g.transition().duration(500).attr('transform', `translate(${left}, ${top})`).style('opacity', 1);
-
-        let texts = g.selectAll('text.month-label')
-            .data(monthLabels)
-            .enter()
-            .append('text')
-            .attr('class', 'month-label')
-            .attr('x', (d, i) => {
-                return 50 + 4 * 17 * i;
-            })
-            .attr('y', 40)
-            .attr('text-anchor', 'middle')
-            .attr('fill', '#9a9a9a')
-            .text(d => d);
-
-        // console.log(dragImagePng);
-        let dragImage = g
-            .append('image')
-            .attr('width', 12)
-            .attr('height', 23)
-            .attr('preserveAspectRatio', 'none')
-            .attr('xlink:href', dragImagePng)
-            .attr('x', 0)
-            .attr('y', -15)
-            .style('-webkit-tap-highlight-color', 'rgba(0, 0, 0 ,0)')
-            .style('cursor', 'move');
-
-        let toolTip = g.select('div.demand-tool-tip')
-            .data([1])
-            .enter()
-            .append('div')
-            .attr('class', 'demand-tool-tip');
-
-        toolTip.top = gTop + top - 50;
-        toolTip.initLeft = gLeft;
-
-        dragImage.call(
-            d3
-                .drag()
-                .on('start', e => {
-                    console.log('dragging', d3.event);
-
-
-                    if (me.interval) {
-                        clearInterval(me.interval);
-                    }
-
-                    let x = d3.event.x;
-                    if (x > gRight) {
-                        x = gRight - 22;
-                        dragImage.attr('x', x);
-                    }
-
-                    if (x < gLeft) {
-                        x = gLeft - 8;
-                        dragImage.attr('x', x);
-                    }
-
-                })
-                .on('drag', e => {
-                    let x = d3.event.x;
-                    let sourceEvent = d3.event.sourceEvent;
-
-                    let minValue = _.minBy(weekValues, item => Math.abs(x - item.x));
-
-                    if (x > gRight) {
-                        x = gRight - 22;
-                    }
-
-                    if (x < gLeft) {
-                        x = gLeft - 8;
-                    }
-
-                    dragImage.attr('x', x);
-                    toolTip
-                        .text(minValue.name)
-                        .style('left', (sourceEvent.clientX - 60) + 'px')
-                        .style('top',  toolTip.top + 'px')
-                        .style('opacity', 1);
-                })
-                .on('end', e => {
-                    let x = d3.event.x;
-
-                    let weekValues = _.values(weekPositions);
-                    let minValue = _.minBy(weekValues, item => Math.abs(x - item.x));
-
-                    dragImage.attr('x', minValue.x);
-
-                    console.log(`当前选择的周是：${minValue.name}`);
-
-                    toolTip.style('opacity', 0);
-                })
-        );
-
-        this.dragImage = dragImage;
-        this.toolTip = toolTip;
-    }
-
-    /**
-     * 显示下一个节点数据
-     */
-    next() {
-
-    }
-
-    /**
-     * 显示上一个节点数据
-     */
-    prev() {
-
-    }
-
-    /**
-     * 跳转到某个节点，显示某个节点数据
-     */
-    jump(i) {
-        if (this.interval) {
-            clearInterval(this.interval);
-            this.toolTip.style('opacity', 0);
-        }
-
-        let point = this.weekValues[i];
-        this.dragImage.transition().duration(500).attr('x', point.x);
-        this.currentIndex = i;
-    }
-
-    /**
-     * 开始轮播
-     * @return {[type]} [description]
-     */
-    start(i = 0) {
-        let weekValues = this.weekValues;
-
-        // 运动节点
-        let currPoint = weekValues[i];
-        let {x:x1, y:y1, name:name1} = currPoint;
-
-        let nextPoint;
-        // while (nextPoint = weekValues[i+1]) {
-        //     let {x2, n2, name2} = nextPoint;
-        // }
-        let me = this;
-
-        // let {left, top, width, height} = me.dragImage.node().getBoundingClientRect();
-        // me.toolTip.style('top', top + 50 + 'px');
-
-        this.interval = setInterval(function () {
-            nextPoint = weekValues[++i];
-
-            if (!nextPoint) {
-                i = 0;
-                nextPoint = weekValues[i]
-            }
-
-            let {x:x2, n:n2, name:name2} = nextPoint;
-            me.dragImage.transition().duration(500).attr('x', x2);
-            let initLeft = me.toolTip.initLeft;
-            me.toolTip.transition().duration(500)
-                .text(name2)
-                .style('left', (initLeft + x2 + 30) + 'px')
-                .style('top', me.toolTip.top + 'px')
-                .style('opacity', 1);
-
-        }, 2000);
-
-        // 显示提示
-
-        // 拉取数据渲染
-
-        // 跳转到下一帧
     }
 
     /**
@@ -420,7 +191,13 @@ class Demand extends Chart {
      * @return {[type]} [description]
      */
     pause() {
+        this.timeline.pause();
+    }
 
+
+    go(index) {
+        this.timeline.go(index);
+        // this.scatter.render(index);
     }
 
     /**
@@ -500,20 +277,10 @@ class Demand extends Chart {
         return points;
     }
 
-    // setOption(options) {
-    //     this.wrapper && (this.wrapper.innerHTML = '');
-    //     this.options = _.extend({}, defaultOptions, options);
-    //     this.init();
-    // }
-
     setData(data) {
         this.options.data = data;
         this.participle();
         this.refreshLoad();
-    }
-
-    firstLoad() {
-
     }
 
     refreshLoad() {
@@ -538,14 +305,6 @@ class Demand extends Chart {
                     let from = _.find(this.elements, item => item.name === word.name);
                     let groupPoints = _.filter(points, item => item.groupIndex === i && !item.selected);
                     let targetGroupPoint = _.find(points, item => item.name === word.name);
-
-
-                    // let minPoint = groupPoints[0];
-                    // _.each(groupPoints, (p, i) => {
-                    //     let v = Math.sqrt(
-                    //         (p.x - from.x) * (p.x - from.x) + (p.y - from.y) * (p.y - from.y)
-                    //     );
-                    // });
 
                     let minPoint = _.minBy(groupPoints, (p, i) => {
                         return Math.sqrt(
@@ -583,9 +342,6 @@ class Demand extends Chart {
             from.text.transition().duration(750)
                 .attr('x', to.x)
                 .attr('y', to.y + to.cr + 15);
-
-            // let text = Util.text(g, point.x, point.y + point.cr + 15, point.name).attr('text-anchor', 'middle').attr('font-size', 12);
-
         });
     }
 
@@ -707,8 +463,9 @@ class Timeline {
     constructor(options) {
         this.options = options;
 
-        // 当前索引
+        // 当前索引，也可以设置成最后一个
         this.index = 0;
+        this.count = this.options.weekData.length;
         this.init();
     }
 
@@ -724,12 +481,117 @@ class Timeline {
         // 创建时间轴标签
         this.labels = this.createTimelineLabels();
 
+        // 创建游标
+        this.indicator = this.createIndicator();
+
+        // 居中时间轴
         this.centerTimeline();
+
+        // 创建提示
+        this.tooltip = this.createTooltip();
+
+        // 开始
+        this.start();
+    }
+
+    createTooltip() {
+        if (this.tooltip) {
+             return this.tooltip;
+        }
+        let tooltipHeight = 30;
+        let tooltipWidth = 160;
+        let top = this.g.top + tooltipHeight;
+
+        let tooltip = this.g.select('div.demand-tool-tip')
+            .data([1])
+            .enter()
+            .append('div')
+            .attr('class', 'demand-tool-tip')
+            .style('width', tooltipWidth + 'px')
+            .style('height', tooltipHeight + 'px')
+            .style('line-height', tooltipHeight + 'px')
+            .style('top', top + 'px');
+
+        return tooltip;
+    }
+
+    /**
+     * 创建游标
+     *
+     * @return {Selection} d3包裹的image元素
+     */
+    createIndicator() {
+
+        let indicator = this.g.append('image');
+        Util.attr(indicator, {
+            'class': 'demand-indicator',
+            'preserveAspectRatio': 'none',
+            'xlink:href': dragImagePng,
+            'opacity': 0,
+            'y': -15
+        });
+
+        let dragBehavior = d3.drag()
+            .on('start', this.onDragStart.bind(this))
+            .on('drag', this.onDrag.bind(this))
+            .on('end', this.onDragEnd.bind(this));
+
+        indicator.call(dragBehavior);
+        return indicator;
+    }
+
+    /**
+     * 拖动开始，清除计时器
+     */
+    onDragStart() {
+        // 清除计时器，或者发送拖动开始事件
+        clearInterval(this.interval);
+
+        ee.emit('timeline-drag-start', 'a');
+    }
+
+    onDrag() {
+        let x = d3.event.x;
+        let sourceEvent = d3.event.sourceEvent;
+        let leftEnd = this.g.left;
+        let rightEnd = this.g.right;
+        let indicator = this.indicator;
+
+        x > rightEnd && (x = rightEnd - 22);
+        x < leftEnd && (x = leftEnd - 8);
+        indicator.attr('x', x);
+
+        // 找到最近的一个点
+        let weekData = this.options.weekData;
+        let nearestPoint = _.minBy(weekData, item => Math.abs(x - item.x));
+
+        let isStartOrEnd = (nearestPoint.x === weekData[0].x)
+            || (nearestPoint.x === weekData[weekData.length - 1].x);
+
+        // 限制 tooltip 拖动范围
+        if (!isStartOrEnd) {
+            this.tooltip
+                .text(nearestPoint.start + ' - ' + nearestPoint.end)
+                .style('left', (sourceEvent.clientX - 75) + 'px')
+                .style('opacity', 1);
+        }
+    }
+
+    onDragEnd() {
+        let x = d3.event.x;
+
+        let weekData = this.options.weekData;
+        let nearestPoint = _.minBy(weekData, item => Math.abs(x - item.x));
+
+        this.indicator.attr('x', nearestPoint.x);
+        this.tooltip.style('opacity', 0);
+
+        ee.emit('timeline-drag-end', nearestPoint);
     }
 
     centerTimeline() {
         let {svgHeight, svgWidth} = this.options;
-        let {width, height, left, top} = this.g.node().getBoundingClientRect();
+        let {width, height, left, right} = this.g.node().getBoundingClientRect();
         let marginBottom = 55;
 
         let x = (svgWidth - width) / 2;
@@ -740,7 +602,8 @@ class Timeline {
 
         // 记录坐标轴，避免重复计算
         this.g.left = left;
-        this.g.top = top;
+        this.g.right = right;
+        this.g.top = y;
         this.g.height = height;
         this.g.width = width;
     }
@@ -768,7 +631,15 @@ class Timeline {
                 return y;
             })
             .attr('fill', '#c3dafb')
-            .attr('storke', 'none');
+            .attr('storke', 'none')
+            .attr('cursor', 'pointer');
+
+        points.on('click', (d, i) => {
+            clearInterval(this.interval);
+            delete this.interval;
+            this.tooltip.style('opacity', 0);
+            this.go(i);
+        });
 
         return points;
     }
@@ -813,22 +684,49 @@ class Timeline {
 
     start() {
 
+        let i = 0;
+        this.interval = setInterval(() => {
+            i === this.count && (i = 0);
+            this.go(i++);
+        }, 2000);
     }
 
     go(index) {
+        let weekData = this.options.weekData;
+        let point = weekData[index];
 
+        this.indicator.attr('opacity', 1)
+        this.indicator.transition().duration(500).attr('x', point.x);
+        this.index = index;
+
+        // 只有在轮播时才显示提示
+        if (this.interval) {
+            this.tooltip.transition().duration(500)
+                .text(point.start + ' - ' + point.end)
+                .style('left', (this.g.left + point.x + 15) + 'px')
+                .style('opacity', 1);
+        }
     }
 
     next() {
-
+        this.index === this.count - 1
+            ? this.go(0)
+            : this.go(this.index + 1);
     }
 
     prev() {
-
+        this.index === 0
+            ? this.go(this.count - 1)
+            : this.go(this.index - 1);
     }
 
     dispose() {
+        if (this.tooltip) {
+            let node = this.tooltip.node();
+            node.parentNode.removeChild(node);
 
+            delete this.tooltip;
+        }
     }
 }
 
@@ -841,16 +739,11 @@ export function start() {
         data: formatData[0]
     });
 
-    let i = 0;
-    // var timer = setInterval(
-    //     function() {
-    //         let data = formatData[++i];
-    //         demand.setData(data);
+    demand.on('timeline-drag-start', function (a) {
+        console.log(a);
+    });
 
-    //         if (i >= 2) {
-    //             i = 0;
-    //         }
-    //     },
-    //     2000
-    // );
+    demand.on('timeline-drag-end', function (a) {
+        console.log(a);
+    });
 }

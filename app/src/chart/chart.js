@@ -4,6 +4,7 @@
  */
 
 export default class Chart {
+
     constructor(options) {
         this.options = options;
     }

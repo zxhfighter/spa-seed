@@ -4,6 +4,7 @@
  */
 
 import * as d3 from 'd3';
+import _ from 'lodash';
 
 export default class Util {
 
@@ -133,5 +134,29 @@ export default class Util {
             + (date.getMonth() + 1)
             + splitter
             + (date.getDate());
+    }
+
+    /**
+     * 给d3的selection批量设置属性
+     *
+     * @param  {Selection}    selction d3选择区域
+     * @param  {*}            args     参数
+     * @return {Selection}             d3选择区域
+     */
+    static attr(selection, ...args) {
+
+        let firstArg = args[0];
+        let secondArg = args[1];
+
+        if (typeof firstArg === 'object') {
+            _.each(firstArg, (v, k) => {
+                selection.attr(k, v);
+            })
+        }
+        else if (typeof firstArg === 'string') {
+            selection.attr(firstArg, secondArg);
+        }
+
+        return selection;
     }
 }
