@@ -1,5 +1,5 @@
 /**
- * @file 全局函数
+ * @file 工具函数
  * @author zengxiaohui(zengxiaohui@baidu.com)
  */
 
@@ -120,6 +120,13 @@ export default class Util {
         return weeks;
     }
 
+    /**
+     * 格式化日期
+     *
+     * @param  {Date} date       日期
+     * @param  {string} splitter 分隔符，默认为'.'，例如 2016.09.17
+     * @return {string}          格式化后的日期
+     */
     static formatDate(date, splitter = '.') {
         return '' + date.getFullYear()
             + splitter

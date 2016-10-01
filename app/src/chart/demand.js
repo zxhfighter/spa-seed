@@ -4,10 +4,10 @@
  */
 import './demand.less';
 
-import Chart from './chart';
 import _ from 'lodash';
-import Util from '../common/util';
 import * as d3 from 'd3';
+import Util from '../common/util';
+import Chart from './chart';
 import demandData from './demandData';
 import dragImagePng from '../static/img/zoomhander.png';
 
@@ -39,11 +39,11 @@ const defaultOptions = {
      *     // 0-半径，与相关性成反比
      *     radius: 100,
      *
-     *     // 1-最大半径偏移
+     *     // 1-最大半径偏移，最终的半径为 radius + radiusOffset
      *     maxRadiusOffset: 30,
      *
-     *     // 2-最大角度偏移
-     *     maxAngle: 10,
+     *     // 2-1/4角度
+     *     angle: 10,
      *
      *     // 3-最少4个相关词
      *     minWordLength: 4,
@@ -61,186 +61,20 @@ const defaultOptions = {
         [400, 30, 23, 4, 12]
     ],
 
-    // // 词组数据
-    // series: [
-    //     {
-    //         type: 'demand',
-
-
-    //     }
-    // ],
-
-    // 词组数据
-    data: [
-        {
-            "name": "助手",
-            "query": 4897,
-            "r": 1254,
-            "up": -1,
-            "region": "region1"
-        },
-        {
-            "name": "苹果",
-            "query": 102103,
-            "r": 916,
-            "up": 1,
-            "region": "region1"
-        },
-        {
-            "name": "华为",
-            "query": 182346,
-            "r": 789,
-            "up": -1,
-            "region": "region1"
-        },
-        {
-            "name": "世界",
-            "query": 3838,
-            "r": 698,
-            "up": 1,
-            "region": "region1"
-        },
-        {
-            "name": "官网",
-            "query": 3975,
-            "r": 667,
-            "up": -1,
-            "region": "region1"
-        },
-        {
-            "name": "360",
-            "query": 732171,
-            "r": 614,
-            "up": 1,
-            "region": "region1"
-        },
-        {
-            "name": "定位",
-            "query": 2945,
-            "r": 576,
-            "up": -1,
-            "region": "region1"
-        },
-        {
-            "name": "小米",
-            "query": 406618,
-            "r": 494,
-            "up": 1,
-            "region": "region1"
-        },
-        {
-            "name": "下载",
-            "query": 12567,
-            "r": 404,
-            "up": -1,
-            "region": "region2"
-        },
-        {
-            "name": "号码",
-            "query": 1066,
-            "r": 398,
-            "up": 1,
-            "region": "region2"
-        },
-        {
-            "name": "乐视",
-            "query": 288607,
-            "r": 374,
-            "up": 1,
-            "region": "region2"
-        },
-        {
-            "name": "百度",
-            "query": 625452,
-            "r": 309,
-            "up": -1,
-            "region": "region2"
-        },
-        {
-            "name": "三星",
-            "query": 88573,
-            "r": 307,
-            "up": -1,
-            "region": "region2"
-        },
-        {
-            "name": "80s",
-            "query": 276267,
-            "r": 303,
-            "up": 1,
-            "region": "region2"
-        },
-        {
-            "name": "透明手机",
-            "query": 22374,
-            "r": 301,
-            "up": 1,
-            "region": "region2"
-        },
-        {
-            "name": "透明",
-            "query": 1260,
-            "r": 292,
-            "up": 1,
-            "region": "region2"
-        },
-        {
-            "name": "qq",
-            "query": 722588,
-            "r": 287,
-            "up": 1,
-            "region": "region3"
-        },
-        {
-            "name": "排行",
-            "query": 316,
-            "r": 281,
-            "up": -1,
-            "region": "region3"
-        },
-        {
-            "name": "1024",
-            "query": 118584,
-            "r": 264,
-            "up": 1,
-            "region": "region3"
-        },
-        {
-            "name": "泰拉瑞",
-            "query": 76,
-            "r": 260,
-            "up": 1,
-            "region": "region3"
-        },
-        {
-            "name": "oppo",
-            "query": 49953,
-            "r": 246,
-            "up": 1,
-            "region": "region3"
-        },
-        {
-            "name": "电脑",
-            "query": 16194,
-            "r": 230,
-            "up": 1,
-            "region": "region3"
-        },
-        {
-            "name": "软件",
-            "query": 7611,
-            "r": 227,
-            "up": 1,
-            "region": "region3"
-        },
-        {
-            "name": "电影",
-            "query": 506822,
-            "r": 214,
-            "up": -1,
-            "region": "region3"
-        }
-    ],
+    /**
+     * 相关词数据，格式为
+     *
+     * {
+     *     "name": "助手",
+     *     "query": 4975,
+     *     "r": 1055, // 相关度
+     *     "up": 1,   // up为1表示增长，-1表示下降
+     *     "region": "region1" // 字段没用上
+     * }
+     *
+     * @type {Array}
+     */
+    data: [],
 
     // 中心词
     center: '手机',
@@ -254,13 +88,19 @@ const defaultOptions = {
     // 节点边框颜色
     strokeColor: '#fff',
 
-    // 开始日期
+    // 时间进度条开始日期
     startDate: new Date(2015, 9, 4),
 
-    // 结束日期
+    // 时间进度条结束日期
     endDate: new Date(2016, 8, 25)
 };
 
+/**
+ * 需求图谱
+ *
+ * @class 需求图谱
+ * @extends Chart
+ */
 class Demand extends Chart {
 
     /**
@@ -275,30 +115,24 @@ class Demand extends Chart {
         this.init();
     }
 
-    initOption() {
-
-        // 中心点坐标
-        this.x0 = this.width / 2;
-        this.y0 = this.height / 2 + 10;
-
-        // 是否是第一次载入
-        this.load = false;
-        this.init();
-    }
-
-
+    /**
+     * 初始化
+     */
     init() {
-        // 创建图片背景
-        this.createBackground();
+
+        // 创建图片背景，只绘制一次
+        this.wrapper = this.createBackground();
 
         // 创建SVG
-        this.createSVG();
+        [this.svg, this.svgGroup] = this.createSVG();
 
         // 创建中心词
-        this.createCenter();
+        this.renderCenterWord();
 
         // 创建进度条
-        this.createDateBar();
+        // this.createDateBar();
+
+        this.timeline = this.createTimeline();
 
         // 分词
         this.participle();
@@ -314,14 +148,38 @@ class Demand extends Chart {
 
             this.firstLoad();
 
-            this.start();
+            // this.start();
 
             // 运行节点
             this.load = true;
         }
     }
 
+    createTimeline() {
+
+        let {startDate, endDate, width, height} = this.options;
+        let weeks = Util.getRangeWeeks(startDate, endDate).reverse();
+        let weekData = _.map(weeks, (item, i) => {
+            return {
+                index: i,
+                start: Util.formatDate(item.start),
+                end: Util.formatDate(item.end)
+            };
+        });
+
+        return new Timeline({
+            svg: this.svg,
+            svgWidth: width,
+            svgHeight: height,
+            startDate,
+            endDate,
+            weekData,
+            auto: true // 是否自动播放
+        });
+    }
+
     createDateBar() {
+        let me = this;
         let {startDate, endDate, el} = this.options;
         let weeks = Util.getRangeWeeks(startDate, endDate);
         let weekLabels = _.map(weeks, item => {
@@ -374,6 +232,10 @@ class Demand extends Chart {
             .attr('fill', '#c3dafb')
             .attr('storke', 'none');
 
+        rects.on('click', function (e, i) {
+            me.jump(i);
+        });
+
         let weekValues = _.values(weekPositions);
         this.weekValues = weekValues;
 
@@ -414,7 +276,8 @@ class Demand extends Chart {
             .append('div')
             .attr('class', 'demand-tool-tip');
 
-        let me = this;
+        toolTip.top = gTop + top - 50;
+        toolTip.initLeft = gLeft;
 
         dragImage.call(
             d3
@@ -437,13 +300,12 @@ class Demand extends Chart {
                         x = gLeft - 8;
                         dragImage.attr('x', x);
                     }
-                    
+
                 })
                 .on('drag', e => {
                     let x = d3.event.x;
                     let sourceEvent = d3.event.sourceEvent;
 
-                    
                     let minValue = _.minBy(weekValues, item => Math.abs(x - item.x));
 
                     if (x > gRight) {
@@ -458,7 +320,7 @@ class Demand extends Chart {
                     toolTip
                         .text(minValue.name)
                         .style('left', (sourceEvent.clientX - 60) + 'px')
-                        .style('top',  (gTop + top - 30) + 'px')
+                        .style('top',  toolTip.top + 'px')
                         .style('opacity', 1);
                 })
                 .on('end', e => {
@@ -497,7 +359,14 @@ class Demand extends Chart {
      * 跳转到某个节点，显示某个节点数据
      */
     jump(i) {
+        if (this.interval) {
+            clearInterval(this.interval);
+            this.toolTip.style('opacity', 0);
+        }
 
+        let point = this.weekValues[i];
+        this.dragImage.transition().duration(500).attr('x', point.x);
+        this.currentIndex = i;
     }
 
     /**
@@ -511,15 +380,13 @@ class Demand extends Chart {
         let currPoint = weekValues[i];
         let {x:x1, y:y1, name:name1} = currPoint;
 
-
-
         let nextPoint;
         // while (nextPoint = weekValues[i+1]) {
         //     let {x2, n2, name2} = nextPoint;
         // }
         let me = this;
 
-        let {left, top, width, height} = me.dragImage.node().getBoundingClientRect(); 
+        // let {left, top, width, height} = me.dragImage.node().getBoundingClientRect();
         // me.toolTip.style('top', top + 50 + 'px');
 
         this.interval = setInterval(function () {
@@ -532,10 +399,15 @@ class Demand extends Chart {
 
             let {x:x2, n:n2, name:name2} = nextPoint;
             me.dragImage.transition().duration(500).attr('x', x2);
-            // me.toolTip.transition().duration(500).text(name2).style('left', 200 + 'px').style('opacity', 1);
+            let initLeft = me.toolTip.initLeft;
+            me.toolTip.transition().duration(500)
+                .text(name2)
+                .style('left', (initLeft + x2 + 30) + 'px')
+                .style('top', me.toolTip.top + 'px')
+                .style('opacity', 1);
 
         }, 2000);
-        
+
         // 显示提示
 
         // 拉取数据渲染
@@ -564,7 +436,7 @@ class Demand extends Chart {
         let elements = [];
 
         _.each(points, point => {
-            let g = this.root.append('g');
+            let g = this.svgGroup.append('g');
             let circle = Util.circle(g, point.x, point.y, point.cr).attr('fill', point.fillColor).attr('stroke', point.strokeColor);
             let text = Util.text(g, point.x, point.y + point.cr + 15, point.name).attr('text-anchor', 'middle').attr('font-size', 12);
 
@@ -629,7 +501,7 @@ class Demand extends Chart {
     }
 
     // setOption(options) {
-    //     this.rootDIV && (this.rootDIV.innerHTML = '');
+    //     this.wrapper && (this.wrapper.innerHTML = '');
     //     this.options = _.extend({}, defaultOptions, options);
     //     this.init();
     // }
@@ -717,35 +589,43 @@ class Demand extends Chart {
         });
     }
 
+    /**
+     * 创建背景图片
+     *
+     * @return {Selection} 根元素
+     */
     createBackground() {
-        let {el} = this.options;
-
-        let rootDIV = d3.select(el).append('div').attr('class', 'demand');
-        this.rootDIV = rootDIV;
-        return rootDIV;
+        return d3.select(this.options.el).append('div').attr('class', 'chart-demand');
     }
 
+    /**
+     * 创建SVG容器以及移动坐标轴的g元素
+     *
+     * @return {Array.<Selection>} SVG容器以及移动坐标轴的g元素
+     */
     createSVG() {
         let {width, height} = this.options;
-        let svg = this.rootDIV.append('svg').attr('width', width).attr('height', height).attr('class', 'd3-svg');
+        let svg = this.wrapper.append('svg').attr('width', width).attr('height', height).attr('class', 'd3-svg');
 
         // 这两个参数用来调整与背景图片的中心对齐
         let xOffset = -1;
         let yOffset = -9;
         let x0 = width / 2 + xOffset;
         let y0 = height / 2 + yOffset;
+
+        // 移动原点坐标到中心点(x0, y0)
         let root = svg.append('g').attr('transform', `translate(${x0}, ${y0})`);
 
-        this.svg = svg;
-        this.root = root;
+        // 返回 svg 和 root 元素
+        return [svg, root];
     }
 
-    createCenter() {
-        let centerText = this.options.center;
-        Util.text(this.root, 0, 7, centerText).attr('class', 'demand-center');
-
-        // 下边的圆可以用来测试中心是否与图片重合
-        // Util.circle(this.root, 0, 0, 60).attr('fill', 'rgba(255, 0, 0, 0.3)');
+    /**
+     * 绘制中心词
+     */
+    renderCenterWord() {
+        let centerWord = this.options.center;
+        Util.text(this.svgGroup, 0, 7, centerWord).attr('class', 'demand-center');
     }
 
     participle() {
@@ -819,12 +699,146 @@ class Demand extends Chart {
     }
 }
 
+/**
+ * 进度时间轴
+ */
+class Timeline {
+
+    constructor(options) {
+        this.options = options;
+
+        // 当前索引
+        this.index = 0;
+        this.init();
+    }
+
+    init() {
+        this.svg = this.options.svg;
+
+        // 创建根元素
+        this.g = this.svg.append('g').style('opacity', 0);
+
+        // 创建时间轴节点
+        this.rects = this.createTimelinePoints();
+
+        // 创建时间轴标签
+        this.labels = this.createTimelineLabels();
+
+        this.centerTimeline();
+    }
+
+    centerTimeline() {
+        let {svgHeight, svgWidth} = this.options;
+        let {width, height, left, top} = this.g.node().getBoundingClientRect();
+        let marginBottom = 55;
+
+        let x = (svgWidth - width) / 2;
+        let y = svgHeight - marginBottom;
+        this.g.transition().duration(500)
+            .attr('transform', `translate(${x}, ${y})`)
+            .style('opacity', 1);
+
+        // 记录坐标轴，避免重复计算
+        this.g.left = left;
+        this.g.top = top;
+        this.g.height = height;
+        this.g.width = width;
+    }
+
+    createTimelinePoints() {
+        let weekData = this.options.weekData;
+
+        // 时间点
+        let [rectWidth, rectHeight, gap] = [14, 10, 1.5];
+        let points = this.g.selectAll('rect.date-bar-item')
+            .data(weekData)
+            .enter()
+            .append('rect')
+            .attr('class', 'date-bar-item')
+            .attr('width', rectWidth)
+            .attr('height', rectHeight)
+            .attr('x', (d, i) => {
+                let x = (rectWidth + gap) * i;
+                d.x = x;
+                return x;
+            })
+            .attr('y', d => {
+                let y = 0;
+                d.y = 0;
+                return y;
+            })
+            .attr('fill', '#c3dafb')
+            .attr('storke', 'none');
+
+        return points;
+    }
+
+    createTimelineLabels() {
+        let labelTexts = this.formatTimelineLabels();
+        let leftOffset = 48;
+        let labels = this.g.selectAll('text.month-label')
+            .data(labelTexts)
+            .enter()
+            .append('text')
+            .attr('class', 'month-label')
+            .attr('x', (d, i) => {
+                return leftOffset + 4 * 17 * i;
+            })
+            .attr('y', 40)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#9a9a9a')
+            .text(d => d);
+
+        return labels;
+    }
+
+    formatTimelineLabels() {
+        let weekData = this.options.weekData;
+        let texts = [];
+
+        let oldValue = '';
+        _.each(weekData, item => {
+            let [year, month] = item.end.split('.');
+            let newValue = +month === 1 ? year + '年' + month + '月' : month + '月';
+
+            if (newValue !== oldValue) {
+                texts.push(newValue);
+            }
+
+            oldValue = newValue;
+        });
+
+        return texts;
+    }
+
+    start() {
+
+    }
+
+    go(index) {
+
+    }
+
+    next() {
+
+    }
+
+    prev() {
+
+    }
+
+    dispose() {
+
+    }
+}
+
 export function start() {
     document.querySelector('#main').innerHTML = '';
 
     let formatData = _.values(demandData);
     let demand = new Demand({
-        el: '#main'
+        el: '#main',
+        data: formatData[0]
     });
 
     let i = 0;
