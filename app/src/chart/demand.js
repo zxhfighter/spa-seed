@@ -172,6 +172,7 @@ class Demand extends Chart {
         });
 
         return new Timeline({
+            wrapper: this.wrapper,
             svg: this.svg,
             svgWidth: width,
             svgHeight: height,
@@ -490,8 +491,85 @@ class Timeline {
         // 创建提示
         this.tooltip = this.createTooltip();
 
+        // 创建播放按钮
+        this.startButton = this.createStartButton();
+
+        // 创建上一个按钮
+        this.prevButton = this.createPrevButton();
+
+        // 创建下一个按钮
+        this.nextButton = this.createNextButton();
+
         // 开始
         this.start();
+    }
+
+    createStartButton() {
+        let startButton = this.options.wrapper.append('div')
+            .attr('class', 'demand-pause-button')
+            .style('left', (this.g.left) + 'px')
+            .style('top', this.g.top + 'px')
+            .attr('title', '自动播放/暂停');
+
+        startButton.on('click', this.onStart.bind(this));
+        return startButton;
+    }
+
+    onStart() {
+        // 当前是暂停按钮状态，说明运行中
+        let isRunning = this.startButton.classed('demand-pause-button');
+
+        // 如果运行中，点击以后，暂停
+        if (isRunning) {
+            this.stopAutorun();
+        }
+        else {
+            this.startButton.classed('demand-start-button', false);
+            this.startButton.classed('demand-pause-button', true);
+
+            this.start();
+        }
+    }
+
+    stopAutorun() {
+        this.startButton.classed('demand-pause-button', false);
+        this.startButton.classed('demand-start-button', true);
+
+        clearInterval(this.interval);
+        delete this.interval;
+        this.tooltip.style('opacity', 0);
+    }
+
+    createPrevButton() {
+        let prevButton = this.options.wrapper.append('div')
+            .attr('class', 'demand-prev-button')
+            .style('left', (this.g.left - 25) + 'px')
+            .style('top', this.g.top + 'px')
+            .attr('title', '上一周');
+
+        prevButton.on('click', this.onPrev.bind(this));
+        return prevButton;
+    }
+
+    onPrev() {
+        this.stopAutorun();
+        this.prev();
+    }
+
+    createNextButton() {
+        let nextButton = this.options.wrapper.append('div')
+            .attr('class', 'demand-next-button')
+            .style('left', (this.g.left + 25) + 'px')
+            .style('top', this.g.top + 'px')
+            .attr('title', '下一周');
+
+        nextButton.on('click', this.onNext.bind(this));
+        return nextButton;
+    }
+
+    onNext() {
+        this.stopAutorun();
+        this.next();
     }
 
     createTooltip() {
@@ -500,12 +578,9 @@ class Timeline {
         }
         let tooltipHeight = 30;
         let tooltipWidth = 160;
-        let top = this.g.top + tooltipHeight;
+        let top = this.g.top - 50;
 
-        let tooltip = this.g.select('div.demand-tool-tip')
-            .data([1])
-            .enter()
-            .append('div')
+        let tooltip = this.options.wrapper.append('div')
             .attr('class', 'demand-tool-tip')
             .style('width', tooltipWidth + 'px')
             .style('height', tooltipHeight + 'px')
@@ -582,10 +657,14 @@ class Timeline {
 
         let weekData = this.options.weekData;
         let nearestPoint = _.minBy(weekData, item => Math.abs(x - item.x));
+        let index = _.findIndex(weekData, item => item.x === nearestPoint.x);
 
         this.indicator.attr('x', nearestPoint.x);
         this.tooltip.style('opacity', 0);
 
+        this.index = index;
+
+        this.stopAutorun();
         ee.emit('timeline-drag-end', nearestPoint);
     }
 
@@ -594,14 +673,14 @@ class Timeline {
         let {width, height, left, right} = this.g.node().getBoundingClientRect();
         let marginBottom = 55;
 
-        let x = (svgWidth - width) / 2;
+        let x = (svgWidth - width) / 2 + 50;
         let y = svgHeight - marginBottom;
         this.g.transition().duration(500)
             .attr('transform', `translate(${x}, ${y})`)
             .style('opacity', 1);
 
         // 记录坐标轴，避免重复计算
-        this.g.left = left;
+        this.g.left = left + 50;
         this.g.right = right;
         this.g.top = y;
         this.g.height = height;
@@ -635,9 +714,7 @@ class Timeline {
             .attr('cursor', 'pointer');
 
         points.on('click', (d, i) => {
-            clearInterval(this.interval);
-            delete this.interval;
-            this.tooltip.style('opacity', 0);
+            this.stopAutorun();
             this.go(i);
         });
 
@@ -684,7 +761,7 @@ class Timeline {
 
     start() {
 
-        let i = 0;
+        let i = this.index || 0;
         this.interval = setInterval(() => {
             i === this.count && (i = 0);
             this.go(i++);
@@ -700,12 +777,14 @@ class Timeline {
         this.index = index;
 
         // 只有在轮播时才显示提示
-        if (this.interval) {
+        // if (this.interval) {
             this.tooltip.transition().duration(500)
                 .text(point.start + ' - ' + point.end)
                 .style('left', (this.g.left + point.x + 15) + 'px')
                 .style('opacity', 1);
-        }
+        // }
+
+        ee.emit('loadData', point);
     }
 
     next() {
@@ -739,11 +818,17 @@ export function start() {
         data: formatData[0]
     });
 
-    demand.on('timeline-drag-start', function (a) {
-        console.log(a);
-    });
+    // demand.on('timeline-drag-start', function (a) {
+    //     console.log(a);
+    // });
 
-    demand.on('timeline-drag-end', function (a) {
-        console.log(a);
+    // demand.on('timeline-drag-end', function (a) {
+    //     console.log(a);
+    // });
+
+    demand.on('loadData', function (point) {
+        let index = Math.floor(Math.random() * formatData.length);
+        let data = formatData[index];
+        demand.setData(data);
     });
 }
