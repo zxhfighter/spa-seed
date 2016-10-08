@@ -6,7 +6,18 @@
 import './chord.less';
 import Util from '../common/util';
 import Chart from './chart';
-import * as d3 from 'd3';
+import {
+    range as d3Range,
+    scaleOrdinal as d3ScaleOrdinal,
+    select as d3Select,
+    chord as d3Chord,
+    ribbon as d3Ribbon,
+    arc as d3Arc,
+    event as d3Event,
+    descending as d3Descending,
+    rgb as d3Rgb
+}
+from 'd3';
 
 class Chord extends Chart {
 
@@ -94,9 +105,8 @@ class Chord extends Chart {
         let color = this.options.color;
         let selectedColor = color.filter((item, i) => selectedLabelArray[i]);
 
-        return d3
-            .scaleOrdinal()
-            .domain(d3.range(selectedColor.length))
+        return d3ScaleOrdinal()
+            .domain(d3Range(selectedColor.length))
             .range(selectedColor);
     }
 
@@ -113,9 +123,8 @@ class Chord extends Chart {
         let selectedLegendData = legendData.filter((item, i) => selectedLabelArray[i]);
         let labels = selectedLegendData.map(item => item.name);
 
-        return d3
-            .scaleOrdinal()
-            .domain(d3.range(labels.length))
+        return d3ScaleOrdinal()
+            .domain(d3Range(labels.length))
             .range(labels);
     }
 
@@ -179,8 +188,8 @@ class Chord extends Chart {
             })
             .on('click', function (d, i) {
 
-                let rect = d3.select(this.querySelector('rect'));
-                let text = d3.select(this.querySelector('text'));
+                let rect = d3Select(this.querySelector('rect'));
+                let text = d3Select(this.querySelector('text'));
 
                 // 设置 disabled 状态
                 this.disabled = !this.disabled;
@@ -326,18 +335,18 @@ class Chord extends Chart {
         let serieData = series[0];
 
         // 创建和弦图布局
-        let chord = d3.chord()
+        let chord = d3Chord()
 
             // 外层节点之间的角度间隔，这里是 6℃
             .padAngle(serieData.padAngle)
 
             // 某个节点流出线条大小排序，这里降序排列
-            .sortSubgroups(d3.descending);
+            .sortSubgroups(d3Descending);
 
         rootGroup.datum(chord(matrix || serieData.data));
 
         // 创建曲线
-        let arc = d3.arc()
+        let arc = d3Arc()
             .innerRadius(innerRadius)
             .outerRadius(outerRadius);
 
@@ -363,11 +372,11 @@ class Chord extends Chart {
         // 实际创建
         groups.append('path')
             .style('fill', d => this.colorScale(d.index))
-            .style('stroke', d => d3.rgb(this.colorScale(d.index)).darker())
+            .style('stroke', d => d3Rgb(this.colorScale(d.index)).darker())
             .attr('d', arc);
 
         // 创建丝带
-        let ribbon = d3.ribbon().radius(innerRadius);
+        let ribbon = d3Ribbon().radius(innerRadius);
 
         let me = this;
         rootGroup.append('g')
@@ -378,7 +387,7 @@ class Chord extends Chart {
             .append('path')
             .attr('d', ribbon)
             .style('fill', d => this.colorScale(d.target.index))
-            .style('stroke', d => d3.rgb(this.colorScale(d.target.index)).darker())
+            .style('stroke', d => d3Rgb(this.colorScale(d.target.index)).darker())
             .on('mouseover', function (d, i) {
                 me.ribbonMouseover.call(me, d, i, this);
             })
@@ -389,7 +398,7 @@ class Chord extends Chart {
                 me.ribbonMouseout.call(me, d, i, this);
             });
 
-        let tooltip = d3.select('body').append('div')
+        let tooltip = d3Select('body').append('div')
             .attr('class', 'd3-tooltip');
 
         this.tooltip = tooltip;
@@ -406,21 +415,21 @@ class Chord extends Chart {
         let legend = this.legend;
         tooltip.html(`${legend(e.source.index)}:${e.source.value} => ${legend(e.target.index)}:${e.target.value}`);
 
-        d3.select(dom).style('opacity', .5);
+        d3Select(dom).style('opacity', .5);
         return tooltip.transition().duration(50).style('opacity', 0.9);
     }
 
     ribbonMousemove(e, i, dom) {
         let tooltip = this.tooltip;
         return tooltip
-            .style('top', (d3.event.pageY - 10) + 'px')
-            .style('left', (d3.event.pageX + 10) + 'px');
+            .style('top', (d3Event.pageY - 10) + 'px')
+            .style('left', (d3Event.pageX + 10) + 'px');
     }
 
     ribbonMouseout(e, i, dom) {
         let tooltip = this.tooltip;
 
-        d3.select(dom).style('opacity', 1);
+        d3Select(dom).style('opacity', 1);
         return tooltip.style('opacity', 0);
     }
 
@@ -440,8 +449,8 @@ class Chord extends Chart {
 
     mousemove(e, i, dom) {
         return this.tooltip
-            .style('top', (d3.event.pageY - 10) + 'px')
-            .style('left', (d3.event.pageX + 10) + 'px');
+            .style('top', (d3Event.pageY - 10) + 'px')
+            .style('left', (d3Event.pageX + 10) + 'px');
     }
 
     mouseout(e, i, dom) {

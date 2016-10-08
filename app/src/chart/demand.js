@@ -761,11 +761,12 @@ class Timeline {
 
     start() {
 
-        let i = this.index || 0;
-        this.interval = setInterval(() => {
-            i === this.count && (i = 0);
-            this.go(i++);
-        }, 2000);
+
+        // let i = this.index || 0;
+        // this.interval = setInterval(() => {
+        //     i === this.count && (i = 0);
+        //     this.go(i++);
+        // }, 2000);
     }
 
     go(index) {

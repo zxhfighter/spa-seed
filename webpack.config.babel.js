@@ -2,6 +2,7 @@
  * @file webpack config file
  */
 
+import path from 'path';
 import webpack from 'webpack';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 
@@ -23,7 +24,14 @@ export default {
 
     module: {
         loaders: [
-            {test: /\.js$/, exclude: /node_modules/, loader: 'babel'},
+            {
+                test: /\.js$/,
+                loader: 'babel',
+                include: [
+                    path.resolve(__dirname, 'app/src'),
+                    path.resolve(__dirname, 'node_modules/lodash-es')
+                ]
+            },
             {test: /\.(htm|html)$/i, loader: 'html-withimg-loader'},
             {test: /\.(png|jpg)$/, loader: 'url-loader?limit=8192'},
             {test: /\.less$/, loader: 'style!css!less'},
