@@ -3,12 +3,13 @@
  * @author zengxiaohui(zengxiaohui@baidu.com)
  */
 
+import "./transfer.less";
+
 import Chart from './chart';
 import Util from '../common/util';
 
 import _extend from 'lodash-es/extend';
-
-import {select as d3Select} from 'd3-selection';
+import {select as d3Select, event as d3Event} from 'd3-selection';
 
 /**
  * 默认参数
@@ -93,15 +94,37 @@ class Transfer extends Chart {
         // 画线上的标签
         this.createLineLabels();
 
+        // 创建提示
+        this.tooltip = this.createTooltip();
+
         // 默认从第一个节点发散
         this[this.options.mode](0);
+    }
+
+    createTooltip() {
+        if (this.tooltip) {
+            return this.tooltip;
+        }
+
+        let tooltipHeight = 30;
+        let tooltipWidth = 160;
+        let el = this.options.el;
+
+        let tooltip = d3Select(el).append('div')
+            .attr('class', 'transfer-tool-tip')
+            .style('width', tooltipWidth + 'px')
+            .style('height', tooltipHeight + 'px')
+            .style('line-height', tooltipHeight + 'px')
+            .style('top', top + 'px');
+
+        return tooltip;
     }
 
     createLineLabels() {
         let g = this.svgGroup;
         let lines = this.lines;
         let points = this.points;
-        let {data, colors} = this.options;
+        let {data} = this.options;
         let {ratio} = data;
 
         let newGroup = g.append('g')
@@ -109,19 +132,18 @@ class Transfer extends Chart {
             .data(lines)
             .enter()
             .append('text')
-            .attr('x', (d, i) => {
-                // d.i, d.j, d.line
+            .attr('x', d => {
                 let x = (points[d.i].x + points[d.j].x) / 2;
                 d.line.labelX = x;
                 return x;
             })
-            .attr('y', (d, i) => {
+            .attr('y', d => {
                 let y = (points[d.i].y + points[d.j].y) / 2;
                 d.line.labelY = y;
                 return y;
             })
-            .text((d, i, aaa) => {
-                d.line.label = d3Select(aaa[i]);
+            .text((d, i, arr) => {
+                d.line.label = d3Select(arr[i]);
                 return ratio[d.i][d.j];
             })
             .style('text-anchor', 'middle');
@@ -137,7 +159,7 @@ class Transfer extends Chart {
             markerWidth: 12,
             markerHeight: 12,
             viewBox: '0 0 12 12',
-            refX: 20,
+            refX: 6,
             refY: 6,
             orient: 'auto'
         });
@@ -154,18 +176,18 @@ class Transfer extends Chart {
         let {colors} = this.options;
         let circles = this.circles.nodes();
 
-        this.lines.forEach((item, i) => {
+        this.lines.forEach(item => {
 
             // 找到到达 index 节点的线条
             if (item.j === index) {
-                item.line.attr('opacity', 1);
+                item.line.style('display', 'block');
                 item.line.label.attr('opacity', 1).attr('fill', colors[index]);
                 item.line.attr('stroke', colors[index]).attr('stroke-width', 1);
                 d3Select(circles[index]).attr('stroke', '#fe0').attr('stroke-width', 3);
                 this.arrowMarker.path.attr('fill', colors[index]);
             }
             else {
-                item.line.attr('opacity', 0);
+                item.line.style('display', 'none');
                 item.line.label.attr('opacity', 0);
                 d3Select(circles[item.j]).attr('stroke', 'none');
             }
@@ -175,16 +197,14 @@ class Transfer extends Chart {
     from(index) {
         let {colors} = this.options;
         let circles = this.circles.nodes();
-        this.lines.forEach((item, i) => {
-            // item.i, item.j, item.line
+        this.lines.forEach(item => {
             if (item.i !== index) {
-                item.line.attr('opacity', 0);
+                item.line.style('display', 'none');
                 item.line.label.attr('opacity', 0);
-                this.arrowMarker.path.attr('fill', '#ccc');
                 d3Select(circles[item.i]).attr('stroke', 'none');
             }
             else {
-                item.line.attr('opacity', 1);
+                item.line.style('display', 'block');
                 item.line.label.attr('opacity', 1).attr('fill', colors[index]);
                 this.arrowMarker.path.attr('fill', colors[index]);
                 d3Select(circles[index]).attr('stroke', '#fe0').attr('stroke-width', 3);
@@ -258,23 +278,39 @@ class Transfer extends Chart {
     }
 
     createLines() {
-        let {data, colors} = this.options;
-        let {ratio} = data;
         let points = this.points;
         let g = this.svgGroup;
         let lines = [];
+        let {data} = this.options;
+        let {ratio} = data;
 
         points.forEach((item, i) => {
             points.forEach((nextItem, j) => {
 
                 if (i !== j) {
+
+                    // 计算直线和圆相交点的坐标
+                    let theta = Math.atan((nextItem.y - item.y) / (nextItem.x - item.x));
+                    let x2 = nextItem.x + (nextItem.r + 5) * Math.cos(theta);
+                    let y2 = nextItem.y + (nextItem.r + 5) * Math.sin(theta);
+
+                    if (nextItem.x > item.x) {
+                        x2 = nextItem.x - (nextItem.r + 5) * Math.cos(theta);
+                        y2 = nextItem.y - (nextItem.r + 5) * Math.sin(theta);
+                    }
+
                     let line = g.append('line')
                         .attr('x1', item.x)
                         .attr('y1', item.y)
-                        .attr('x2', nextItem.x)
-                        .attr('y2', nextItem.y)
+                        .attr('x2', x2)
+                        .attr('y2', y2)
                         .attr('stroke', '#ccc')
                         .attr('marker-end', 'url("#arrow")');
+
+                    line.on('mouseover', function () {
+                        console.log(`${i} to ${j}: ${ratio[i][j]}`);
+                        console.log(d3Event);
+                    });
 
                     lines.push({i, j, line});
                 }
@@ -308,7 +344,12 @@ class Transfer extends Chart {
      * 销毁
      */
     dispose() {
+        if (this.tooltip) {
+            let node = this.tooltip.node();
+            node.parentNode.removeChild(node);
 
+            delete this.tooltip;
+        }
     }
 }
 
