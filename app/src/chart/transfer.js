@@ -9,7 +9,7 @@ import Chart from './chart';
 import Util from '../common/util';
 
 import _extend from 'lodash-es/extend';
-import {select as d3Select, event as d3Event} from 'd3-selection';
+import {select as d3Select} from 'd3-selection';
 
 /**
  * 默认参数
@@ -28,6 +28,10 @@ const defaultOptions = {
     // 节点最小半径和最大半径
     R_MIN: 10,
     R_MAX: 30,
+
+    // 线条最大宽度和最小宽度
+    LINE_WIDTH_MAX: 5,
+    LINE_WIDTH_MIN: 1,
 
     // 数据
     data: {
@@ -88,38 +92,54 @@ class Transfer extends Chart {
         // 画圆
         [this.circles, this.points, this.labels] = this.createCircles();
 
+        // 创建提示
+        this.tooltip = this.createTooltip();
+
         // 画线
         this.lines = this.createLines();
 
         // 画线上的标签
         this.createLineLabels();
 
-        // 创建提示
-        this.tooltip = this.createTooltip();
-
         // 默认从第一个节点发散
         this[this.options.mode](0);
     }
 
+    /**
+     * 创建提示框
+     *
+     * @return {Selection} 提示框(div)
+     */
     createTooltip() {
         if (this.tooltip) {
             return this.tooltip;
         }
 
         let tooltipHeight = 30;
-        let tooltipWidth = 160;
-        let el = this.options.el;
-
-        let tooltip = d3Select(el).append('div')
+        let tooltip = d3Select('body').append('div')
             .attr('class', 'transfer-tool-tip')
-            .style('width', tooltipWidth + 'px')
             .style('height', tooltipHeight + 'px')
             .style('line-height', tooltipHeight + 'px')
             .style('top', top + 'px');
 
+        tooltip.on('mouseover', () => {
+            clearTimeout(this.timer);
+        });
+
+        tooltip.on('mouseout', () => {
+            this.timer = setTimeout(() => {
+                tooltip.style('display', 'none');
+            }, 2000);
+        });
+
         return tooltip;
     }
 
+    /**
+     * 创建线条提示文字，居中显示
+     *
+     * @return {Selection} 文本集合(text)
+     */
     createLineLabels() {
         let g = this.svgGroup;
         let lines = this.lines;
@@ -128,7 +148,7 @@ class Transfer extends Chart {
         let {ratio} = data;
 
         let newGroup = g.append('g')
-        newGroup.selectAll('text')
+        return newGroup.selectAll('text')
             .data(lines)
             .enter()
             .append('text')
@@ -144,21 +164,29 @@ class Transfer extends Chart {
             })
             .text((d, i, arr) => {
                 d.line.label = d3Select(arr[i]);
-                return ratio[d.i][d.j];
+
+                let sum = ratio[d.i].reduce((a, b) => a + b, 0);
+                return (ratio[d.i][d.j] / sum * 100).toFixed(2) + '%';
             })
+            .style('font-size', '12px')
             .style('text-anchor', 'middle');
     }
 
+    /**
+     * 创建箭头标记
+     *
+     * @return {Selection} 箭头标记(marker)
+     */
     createArrowMarker() {
         let defs = this.svg.append('defs');
         let arrowMarker = defs.append('marker');
 
         Util.attr(arrowMarker, {
             id: 'arrow',
-            markerUnits: 'strokeWidth',
+            markerUnits: 'userSpaceOnUse',
             markerWidth: 12,
             markerHeight: 12,
-            viewBox: '0 0 12 12',
+            viewBox: '0 0 10 10',
             refX: 6,
             refY: 6,
             orient: 'auto'
@@ -172,6 +200,11 @@ class Transfer extends Chart {
         return arrowMarker;
     }
 
+    /**
+     * 其余节点箭头均指向(会聚) index 节点，用于查看从其他节点流入该节点的转移信息
+     *
+     * @param  {number} index 汇聚的节点索引
+     */
     to(index) {
         let {colors} = this.options;
         let circles = this.circles.nodes();
@@ -182,7 +215,7 @@ class Transfer extends Chart {
             if (item.j === index) {
                 item.line.style('display', 'block');
                 item.line.label.attr('opacity', 1).attr('fill', colors[index]);
-                item.line.attr('stroke', colors[index]).attr('stroke-width', 1);
+                item.line.attr('stroke', colors[index]);
                 d3Select(circles[index]).attr('stroke', '#fe0').attr('stroke-width', 3);
                 this.arrowMarker.path.attr('fill', colors[index]);
             }
@@ -194,6 +227,11 @@ class Transfer extends Chart {
         });
     }
 
+    /**
+     * 从 index 节点发出箭头到其他所有节点，用于查看从该节点流出到其他节点的转移信息
+     *
+     * @param  {number} index 发散的节点索引
+     */
     from(index) {
         let {colors} = this.options;
         let circles = this.circles.nodes();
@@ -208,11 +246,16 @@ class Transfer extends Chart {
                 item.line.label.attr('opacity', 1).attr('fill', colors[index]);
                 this.arrowMarker.path.attr('fill', colors[index]);
                 d3Select(circles[index]).attr('stroke', '#fe0').attr('stroke-width', 3);
-                item.line.attr('stroke', colors[index]).attr('stroke-width', 1);
+                item.line.attr('stroke', colors[index]);
             }
         });
     }
 
+    /**
+     * 创建节点、节点标签
+     *
+     * @return {Array} 分别返回节点、节点坐标参数(x,y,r)、节点标签
+     */
     createCircles() {
         let {data, width, height, R_MAX, R_MIN, colors} = this.options;
         let {share, label} = data;
@@ -222,6 +265,7 @@ class Transfer extends Chart {
         let r = Math.min(width / 2, height / 2) - R_MAX - padding;
         let min = Math.min(...share);
         let max = Math.max(...share);
+        let sum = share.reduce((a, b) => a + b, 0);
 
         let points = [];
         let circles = this.svgGroup.selectAll('circle')
@@ -264,25 +308,42 @@ class Transfer extends Chart {
                 let marginBottom = 5;
                 return points[i].y - points[i].r - marginBottom;
             })
-            .text(d => d)
+            .text((d, i) => {
+                return d + ' : ' + (share[i] / sum * 100).toFixed(2) + '%'
+            })
             .style('fill', (d, i) => colors[i])
             .style('font-size', '12px')
             .style('text-anchor', 'middle');
 
-
         return [circles, points, texts];
     }
 
+    /**
+     * 点击节点，根据参数 mode 进行发散或者汇聚
+     *
+     * @param  {Object} data 节点参数
+     * @param  {number} i    节点索引
+     */
     onCircleClick(data, i) {
         this[this.options.mode](i);
     }
 
+    /**
+     * 创建节点之间的连线
+     *
+     * @return {Array} 节点连线信息，每个元素包括(i-开始节点, j-结束节点, line-节点连线)
+     */
     createLines() {
         let points = this.points;
         let g = this.svgGroup;
         let lines = [];
-        let {data} = this.options;
-        let {ratio} = data;
+        let {data, LINE_WIDTH_MIN, LINE_WIDTH_MAX} = this.options;
+        let {ratio, label} = data;
+        let tooltip = this.tooltip;
+        let me = this;
+
+        let max = Math.max(...ratio.map(item => Math.max(...item)));
+        let min = Math.min(...ratio.map(item => Math.min(...item)));
 
         points.forEach((item, i) => {
             points.forEach((nextItem, j) => {
@@ -299,17 +360,40 @@ class Transfer extends Chart {
                         y2 = nextItem.y - (nextItem.r + 5) * Math.sin(theta);
                     }
 
+                    // 计算宽度
+                    let lineWidth = LINE_WIDTH_MIN
+                        + Math.floor(Util.normalize(ratio[i][j], min, max) * (LINE_WIDTH_MAX - LINE_WIDTH_MIN));
+
                     let line = g.append('line')
                         .attr('x1', item.x)
                         .attr('y1', item.y)
                         .attr('x2', x2)
                         .attr('y2', y2)
                         .attr('stroke', '#ccc')
+                        .attr('stroke-width', lineWidth)
                         .attr('marker-end', 'url("#arrow")');
 
-                    line.on('mouseover', function () {
-                        console.log(`${i} to ${j}: ${ratio[i][j]}`);
-                        console.log(d3Event);
+                    // 这里没有用 line.on('mouseover') ，因为取不到 d3.event，很奇怪
+                    let node = line.node();
+                    node.addEventListener('mouseover', function (e) {
+                        clearTimeout(me.timer);
+                        let {pageX, pageY} = e || window.event || {};
+                        if (pageX && pageY) {
+                            let sum = ratio[i].reduce((a, b) => a + b, 0);
+                            let txt = label[i] + ' -> ' + label[j] + ' : '
+                                + (ratio[i][j] / sum * 100).toFixed(2) + '%';
+                            tooltip
+                                .style('left', pageX + 'px')
+                                .style('top', pageY + 'px')
+                                .style('display', 'block')
+                                .text(txt);
+                        }
+                    });
+
+                    node.addEventListener('mouseout', function () {
+                        me.timer = setTimeout(() => {
+                            tooltip.style('display', 'none');
+                        }, 2000);
                     });
 
                     lines.push({i, j, line});
@@ -341,7 +425,7 @@ class Transfer extends Chart {
     }
 
     /**
-     * 销毁
+     * 销毁，主要是提示框
      */
     dispose() {
         if (this.tooltip) {
